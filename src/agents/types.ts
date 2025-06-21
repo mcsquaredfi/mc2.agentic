@@ -177,4 +177,6 @@ export interface Env {
   // Typesense
   TYPESENSE_HOST?: string;
   TYPESENSE_API_KEY?: string;
+  // Amplitude
+  AMPLITUDE_API_KEY?: string;
 } 

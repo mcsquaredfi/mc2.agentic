@@ -1,23 +1,9 @@
 # 🤖 Chat Agent Starter Kit
 
-![agents-header](https://github.com/user-attachments/assets/f6d99eeb-1803-4495-9c5e-3cf07a37b402)
-
 A starter template for building AI-powered chat agents using Cloudflare's Agent platform, powered by [`agents`](https://www.npmjs.com/package/agents). This project provides a foundation for creating interactive chat experiences with AI, complete with a modern UI and tool integration capabilities.
 
 ## Features
 
-- 💬 Interactive chat interface with AI
-- 🛠️ Built-in tool system with human-in-the-loop confirmation
-- 📅 Advanced task scheduling (one-time, delayed, and recurring via cron)
-- 🌓 Dark/Light theme support
-- ⚡️ Real-time streaming responses
-- 🔄 State management and chat history
-- 🎨 Modern, responsive UI
-
-## Prerequisites
-
-- Cloudflare account
-- OpenAI API key
 
 ## Quick Start
 1. Install dependencies:

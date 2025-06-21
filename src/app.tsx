@@ -28,6 +28,16 @@ const toolsRequiringConfirmation: (keyof typeof tools)[] = [
   "getWeatherInformation",
 ];
 
+function getOrCreateAgentSessionId(): string {
+  const key = 'agentSessionId';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
 export default function Chat() {
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     // Check localStorage first, default to dark if not found
@@ -65,8 +75,11 @@ export default function Chat() {
     setTheme(newTheme);
   };
 
+  const agentSessionId = getOrCreateAgentSessionId();
+
   const agent = useAgent({
     agent: "chat",
+    name: agentSessionId,
   });
 
   const {
@@ -174,11 +187,11 @@ export default function Chat() {
                   <ul className="text-sm text-left space-y-2">
                     <li className="flex items-center gap-2">
                       <span className="text-[#F48120]">•</span>
-                      <span>Whats the current price of aero on base?</span>
+                      <span>What's the current price of aero on base?</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-[#F48120]">•</span>
-                      <span>Whats a great token under 100m mcap to buy?</span>
+                      <span>What's a great token under $100m mcap to buy?</span>
                     </li>
                   </ul>
                 </div>
