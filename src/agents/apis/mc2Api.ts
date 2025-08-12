@@ -128,7 +128,10 @@ export class MC2APIClient {
         throw new Error(`Failed to add wallet: ${response.statusText}`);
       }
 
-      const data = (await response.json()) as { success: boolean; data: { portfolioId: number } };
+      const data = (await response.json()) as {
+        success: boolean;
+        data: { portfolioId: number };
+      };
       return data;
     } catch (error) {
       console.error("Error adding wallet:", error);
@@ -152,7 +155,10 @@ export class MC2APIClient {
         throw new Error(`Failed to add wallet: ${response.statusText}`);
       }
 
-      const data = (await response.json()) as { results: Record<string, any>[]; query: string };
+      const data = (await response.json()) as {
+        results: Record<string, any>[];
+        query: string;
+      };
       console.log("mc2 search data", data);
       return data;
     } catch (error) {
@@ -160,4 +166,4 @@ export class MC2APIClient {
       throw error;
     }
   }
-} 
+}

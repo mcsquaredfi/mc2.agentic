@@ -165,7 +165,6 @@ export interface BaseAgent {
 export interface Env {
   // Durable Object namespaces
   AGENT_DO?: DurableObjectNamespace;
-  MC2MCPServer?: DurableObjectNamespace;
   Chat?: DurableObjectNamespace;
 
   // AI binding

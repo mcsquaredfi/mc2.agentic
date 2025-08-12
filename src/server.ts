@@ -14,8 +14,8 @@ import { openai, createOpenAI } from "@ai-sdk/openai";
 import { processToolCalls } from "./utils";
 import { tools, executions } from "./tools";
 import { AsyncLocalStorage } from "node:async_hooks";
+import Mc2fiMCPAgent from "./mcp/mc2fi-mcp";
 // import { env } from "cloudflare:workers";
-
 
 // we use ALS to expose the agent context to the tools
 export const agentContext = new AsyncLocalStorage<Chat>();
@@ -85,7 +85,7 @@ export const agentContext = new AsyncLocalStorage<Chat>();
  * To use the original Chat agent, comment out the export below and uncomment the export above.
  */
 // --- Mc2fiChatAgent as the active Chat agent ---
-export class Chat extends Mc2fiChatAgent { }
+export class Chat extends Mc2fiChatAgent {}
 
 /**
  * Worker entry point that routes incoming requests to the appropriate handler
@@ -98,6 +98,20 @@ export default {
       );
       return new Response("OPENAI_API_KEY is not set", { status: 500 });
     }
+    const url = new URL(request.url);
+
+    if (url.pathname.startsWith("/sse")) {
+      return Mc2fiMCPAgent.serveSSE("/sse", {
+        binding: "Mc2fiMCPAgent",
+      }).fetch(request, env, ctx);
+    }
+
+    if (url.pathname.startsWith("/mcp")) {
+      return Mc2fiMCPAgent.serve("/mcp", {
+        binding: "Mc2fiMCPAgent",
+      }).fetch(request, env, ctx);
+    }
+
     return (
       // Route the request to our agent or return 404 if not found
       (await routeAgentRequest(request, env)) ||
@@ -105,3 +119,5 @@ export default {
     );
   },
 } satisfies ExportedHandler<Env>;
+
+export { Mc2fiMCPAgent };
