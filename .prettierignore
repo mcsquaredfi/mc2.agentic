@@ -1,1 +1,47 @@
-worker-configuration.d.ts
+# Dependencies
+node_modules/
+*.lock
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.vite/
+
+# Generated files
+*.generated.*
+*.d.ts
+
+# Config files
+.env*
+wrangler.toml
+*.config.js
+*.config.ts
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+.parcel-cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Cloudflare
+.dev.vars
+.wrangler/

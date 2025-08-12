@@ -5,7 +5,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "mc2-mcp-server",
-	"main": "src/mcp-server.ts",
+	"main": "src/server.ts",
 	"compatibility_date": "2025-02-04",
 	"compatibility_flags": [
 		"nodejs_compat",
@@ -17,12 +17,12 @@
 	"durable_objects": {
 		"bindings": [
 			{
-        "name": "MC2MCPServer",
-        "class_name": "MC2MCPServer"
-      },
-			{
 				"name": "Chat",
 				"class_name": "Chat"
+			},
+			{
+				"name": "Mc2fiMCPAgent",
+				"class_name": "Mc2fiMCPAgent"
 			}
 		]
 	},
@@ -30,8 +30,7 @@
 		{
 			"tag": "v1",
 			"new_sqlite_classes": [
-				"Chat", 
-				"MC2MCPServer"
+				"Chat", "Mc2fiMCPAgent"
 			]
 		}
 	],
