@@ -184,4 +184,7 @@ export interface Env {
   TYPESENSE_API_KEY?: string;
   // Amplitude
   AMPLITUDE_API_KEY?: string;
+
+  // MCP Client
+  MCP_HOST: string;
 }
