@@ -5,8 +5,6 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "mcp:start": "wrangler dev",
-    "mcp:inspector": "npx @modelcontextprotocol/inspector@latest",
     "start": "vite dev",
     "deploy": "vite build && wrangler deploy",
     "test": "vitest",
