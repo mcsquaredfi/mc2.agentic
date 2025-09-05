@@ -88,22 +88,29 @@ class Mc2fiChatAgent extends AIChatAgent<Env> {
   private mcpConnected = false;
 
   async onStart(): Promise<void> {
-    // Make MCP connection optional and non-blocking
+    // Make MCP connection completely asynchronous and non-blocking
     if (this.env.MCP_HOST) {
-      try {
-        await this.mcp.connect(`${this.env.MCP_HOST}/sse`);
-        this.mcpConnected = true;
-        console.info("MC2FI-MCP@1.0.0 server connected");
-      } catch (error) {
+      // Don't await this - let it happen in the background
+      this.initializeMCP().catch((error) => {
         console.warn(
           "Failed to connect to MCP server:",
           error instanceof Error ? error.message : "Unknown error"
         );
-        console.warn("Agent will continue without MCP tools");
         this.mcpConnected = false;
-      }
+      });
     } else {
       console.info("No MCP_HOST configured, running without MCP tools");
+    }
+  }
+
+  private async initializeMCP(): Promise<void> {
+    try {
+      await this.mcp.connect(`${this.env.MCP_HOST}/sse`);
+      this.mcpConnected = true;
+      console.info("MC2FI-MCP@1.0.0 server connected");
+    } catch (error) {
+      console.warn("MCP connection failed:", error);
+      this.mcpConnected = false;
     }
   }
 
@@ -122,10 +129,6 @@ class Mc2fiChatAgent extends AIChatAgent<Env> {
     }
     const baseTools = getTools(tokensSearchApi) as ToolSet;
     const tools = { ...baseTools, ...mcpTools };
-
-    if (!this.env.AMPLITUDE_API_KEY) {
-      throw new Error("AMPLITUDE_API_KEY environment variable is not set");
-    }
     const amplitude = new AmplitudeAPI(this.env.AMPLITUDE_API_KEY);
 
     // Find the latest user message
