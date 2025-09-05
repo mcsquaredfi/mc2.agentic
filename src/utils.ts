@@ -32,8 +32,8 @@ export async function processToolCalls<
   ExecutableTools extends {
     // biome-ignore lint/complexity/noBannedTypes: it's fine
     [Tool in keyof Tools as Tools[Tool] extends { execute: Function }
-    ? never
-    : Tool]: Tools[Tool];
+      ? never
+      : Tool]: Tools[Tool];
   },
 >({
   dataStream,

@@ -4,7 +4,8 @@ import { traceable } from "langsmith/traceable";
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
 const LANGSMITH_PROJECT = process.env.LANGSMITH_PROJECT;
 const LANGSMITH_TRACING = process.env.LANGSMITH_TRACING === "true";
-const LANGSMITH_BASE_URL = process.env.LANGSMITH_BASE_URL || "https://api.smith.langchain.com";
+const LANGSMITH_BASE_URL =
+  process.env.LANGSMITH_BASE_URL || "https://api.smith.langchain.com";
 
 export const langsmithClient = new Client({
   apiUrl: LANGSMITH_BASE_URL,
@@ -14,7 +15,10 @@ export const langsmithClient = new Client({
  * Fetch a prompt from LangSmith by name, optionally injecting variables.
  * Throws if the prompt is not found or is empty.
  */
-export async function getPrompt(promptName: string, variables?: Record<string, any>): Promise<string> {
+export async function getPrompt(
+  promptName: string,
+  variables?: Record<string, any>
+): Promise<string> {
   if (!LANGSMITH_API_KEY || !LANGSMITH_PROJECT) {
     throw new Error("LangSmith API key or project not set");
   }
@@ -23,11 +27,16 @@ export async function getPrompt(promptName: string, variables?: Record<string, a
   let prompt = (promptObj as any)?.template ?? (promptObj as any)?.text ?? "";
   if (!prompt) {
     console.log("promptObj", promptObj);
-    throw new Error(`Prompt '${promptName}' not found or is empty in LangSmith`);
+    throw new Error(
+      `Prompt '${promptName}' not found or is empty in LangSmith`
+    );
   }
   if (variables) {
     for (const [key, value] of Object.entries(variables)) {
-      prompt = prompt.replace(new RegExp(`{{\s*${key}\s*}}`, "g"), String(value));
+      prompt = prompt.replace(
+        new RegExp(`{{\s*${key}\s*}}`, "g"),
+        String(value)
+      );
     }
   }
   console.log("prompt used", prompt);
@@ -57,7 +66,7 @@ export async function traceLLMCall({
   await fetch(url, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${LANGSMITH_API_KEY}`,
+      Authorization: `Bearer ${LANGSMITH_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -65,4 +74,4 @@ export async function traceLLMCall({
 }
 
 // Export the correct tracing helper
-export { traceable }; 
+export { traceable };

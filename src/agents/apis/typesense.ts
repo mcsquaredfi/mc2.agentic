@@ -2,7 +2,7 @@ export default class Typesense {
   constructor(
     private cluster: string,
     private apiKey: string
-  ) { }
+  ) {}
 
   private async request(path: string, options: RequestInit = {}) {
     const url = `https://${this.cluster}.a1.typesense.net:443${path}`;
@@ -38,26 +38,31 @@ export default class Typesense {
     try {
       return await this.request(`/collections/${collection}/documents/${id}`);
     } catch (err) {
-      if (err.message.includes('404')) return null;
+      if (err.message.includes("404")) return null;
       throw err;
     }
   }
 
-  async searchTokens(query: string, options: {
-    limit?: number;
-    filterBy?: string;
-    sortBy?: string;
-  } = {}): Promise<any> {
+  async searchTokens(
+    query: string,
+    options: {
+      limit?: number;
+      filterBy?: string;
+      sortBy?: string;
+    } = {}
+  ): Promise<any> {
     try {
       const searchParams = new URLSearchParams({
         q: query,
         query_by: "name,symbol,chain",
         per_page: (options.limit || 10).toString(),
         ...(options.filterBy ? { filter_by: options.filterBy } : {}),
-        ...(options.sortBy ? { sort_by: options.sortBy } : {})
+        ...(options.sortBy ? { sort_by: options.sortBy } : {}),
       });
 
-      return this.request(`/collections/tokens/documents/search?${searchParams.toString()}`);
+      return this.request(
+        `/collections/tokens/documents/search?${searchParams.toString()}`
+      );
     } catch (err) {
       console.error("Error searching tokens: ", {
         error: err,
@@ -69,22 +74,27 @@ export default class Typesense {
     }
   }
 
-  async searchPortfolios(query: string, options: {
-    limit?: number;
-    filterBy?: string;
-    sortBy?: string;
-  } = {}): Promise<any> {
+  async searchPortfolios(
+    query: string,
+    options: {
+      limit?: number;
+      filterBy?: string;
+      sortBy?: string;
+    } = {}
+  ): Promise<any> {
     try {
       const searchParams = new URLSearchParams({
         q: query,
         query_by: "name,username,wallets",
         per_page: (options.limit || 10).toString(),
         ...(options.filterBy ? { filter_by: options.filterBy } : {}),
-        ...(options.sortBy ? { sort_by: options.sortBy } : {})
+        ...(options.sortBy ? { sort_by: options.sortBy } : {}),
       });
 
       //console.log('searchParams', searchParams.toString());
-      return this.request(`/collections/portfolios/documents/search?${searchParams.toString()}`);
+      return this.request(
+        `/collections/portfolios/documents/search?${searchParams.toString()}`
+      );
     } catch (err) {
       console.error("Error searching portfolios: ", {
         error: err,

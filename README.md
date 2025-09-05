@@ -4,14 +4,13 @@ A starter template for building AI-powered chat agents using Cloudflare's Agent 
 
 ## Features
 
-
 ## Quick Start
+
 1. Install dependencies:
 
 ```bash
 npm install
 ```
-
 
 2. Run locally:
 

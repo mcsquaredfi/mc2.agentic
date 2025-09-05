@@ -41,4 +41,4 @@ export class AmplitudeAPI {
       console.error("AmplitudeAPI fetch error:", err);
     }
   }
-} 
+}
