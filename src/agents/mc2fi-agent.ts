@@ -9,7 +9,7 @@ import {
 import { z } from "zod";
 import { MC2APIClient } from "./apis/mc2Api";
 import type { Env } from "./types";
-import { agentContext } from "../server";
+import { agentContext } from "./context";
 import { createOpenAI } from "@ai-sdk/openai";
 import TokensSearchAPI, { searchQuerySchema } from "./apis/tokensSearch";
 import { AmplitudeAPI } from "./apis/amplitudeAPI";

@@ -1,10 +1,6 @@
 import { routeAgentRequest } from "agents";
 import Mc2fiChatAgent from "./agents/mc2fi-agent";
-import { AsyncLocalStorage } from "node:async_hooks";
 import type { Env } from "./agents/types";
-
-// we use ALS to expose the agent context to the tools
-export const agentContext = new AsyncLocalStorage<Chat>();
 
 /**
  * To use the original Chat agent, comment out the export below and uncomment the export above.
