@@ -1,0 +1,55 @@
+name: 🚀 Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+
+env:
+  NODE_VERSION: "23"
+  PNPM_VERSION: "10"
+
+jobs:
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🕊 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: 📥 Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      - name: 🔍 Type check
+        run: pnpm run types
+
+      - name: 🧹 Lint and format check
+        run: pnpm run check
+
+      - name: 🧪 Run tests
+        run: pnpm run test
+
+      - name: 🚀 Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
+          wranglerVersion: "4.34.0"
+          packageManager: pnpm
+
+      - name: ✅ Deployment Status
+        if: success()
+        run: echo "🚀 Successfully deployed mc2-agent to Cloudflare Workers!"
