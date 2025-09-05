@@ -1,6 +1,6 @@
-import { D1Database } from '@cloudflare/workers-types';
-import { VectorizeIndex } from '@cloudflare/workers-types';
-import type { DurableObjectNamespace } from '@cloudflare/workers-types';
+import { D1Database } from "@cloudflare/workers-types";
+import { VectorizeIndex } from "@cloudflare/workers-types";
+import type { DurableObjectNamespace } from "@cloudflare/workers-types";
 
 /**
  * Base interface for all tasks in the system
@@ -9,7 +9,7 @@ export interface Task {
   id: string;
   type: string;
   data: any;
-  priority: 'low' | 'medium' | 'high';
+  priority: "low" | "medium" | "high";
   createdAt: Date;
   deadline?: Date;
 }
@@ -33,10 +33,10 @@ export interface TaskResult {
  * Schedule configuration for tasks
  */
 export interface Schedule {
-  type: 'once' | 'recurring';
+  type: "once" | "recurring";
   startAt: Date;
   interval?: number; // in milliseconds, for recurring tasks
-  endAt?: Date;     // optional end date for recurring tasks
+  endAt?: Date; // optional end date for recurring tasks
 }
 
 /**
@@ -141,7 +141,11 @@ export interface BaseAgent {
 
   // Feedback system
   receiveFeedback(feedback: FeedbackPoint): Promise<void>;
-  giveFeedback(targetAgent: string, points: number, context: any): Promise<void>;
+  giveFeedback(
+    targetAgent: string,
+    points: number,
+    context: any
+  ): Promise<void>;
 
   // Task management
   executeTask(task: Task): Promise<TaskResult>;
@@ -159,24 +163,28 @@ export interface BaseAgent {
  * Environment variables and bindings
  */
 export interface Env {
-  // Durable Object namespace
-  AGENT_DO: DurableObjectNamespace;
+  // Durable Object namespaces
+  AGENT_DO?: DurableObjectNamespace;
+  Chat?: DurableObjectNamespace;
 
   // AI binding
-  AI: any;
+  AI?: any;
 
   // Vectorize binding
-  VECTORIZE_INDEX: VectorizeIndex;
+  VECTORIZE_INDEX?: VectorizeIndex;
 
   // D1 binding
-  DB: D1Database;
+  DB?: D1Database;
 
   // Secrets
-  OPENAI_API_KEY: string;
-  JWT_SECRET: string;
+  OPENAI_API_KEY?: string;
+  JWT_SECRET?: string;
   // Typesense
   TYPESENSE_HOST?: string;
   TYPESENSE_API_KEY?: string;
   // Amplitude
   AMPLITUDE_API_KEY?: string;
-} 
+
+  // MCP Client
+  MCP_HOST: string;
+}

@@ -8,17 +8,47 @@ export const searchQuerySchema = z.object({
   filters: z
     .object({
       chain_id: z.string().optional().describe("Chain ID to filter by"),
-      chain: z.string().optional().describe("Chain name to filter by (e.g., ethereum, polygon) - can be an array of chains"),
-      marketcap: z.object({ min: z.number().optional(), max: z.number().optional() }).optional().describe("Market cap range in USD"),
-      volumeMcapRatio: z.object({ min: z.number().optional(), max: z.number().optional() }).optional().describe("Volume to market cap ratio"),
-      authenticity_score: z.number().min(0).max(1).optional().describe("Minimum authenticity score (0-1)"),
-      price: z.object({ min: z.number().optional(), max: z.number().optional() }).optional(),
+      chain: z
+        .string()
+        .optional()
+        .describe(
+          "Chain name to filter by (e.g., ethereum, polygon) - can be an array of chains"
+        ),
+      marketcap: z
+        .object({ min: z.number().optional(), max: z.number().optional() })
+        .optional()
+        .describe("Market cap range in USD"),
+      volumeMcapRatio: z
+        .object({ min: z.number().optional(), max: z.number().optional() })
+        .optional()
+        .describe("Volume to market cap ratio"),
+      authenticity_score: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Minimum authenticity score (0-1)"),
+      price: z
+        .object({ min: z.number().optional(), max: z.number().optional() })
+        .optional(),
       stablecoin: z.boolean().optional().describe("Filter for stablecoins"),
       primitive: z.string().optional().describe("Token primitive type"),
-      cexlisted: z.boolean().optional().describe("Filter for CEX listed tokens"),
-      holders: z.object({ min: z.number().optional(), max: z.number().optional() }).optional().describe("Number of holders range"),
-      price_change_24h: z.object({ min: z.number().optional(), max: z.number().optional() }).optional().describe("24h price change range in percentage"),
-      liquidity: z.object({ min: z.number().optional(), max: z.number().optional() }).optional().describe("Liquidity range in USD"),
+      cexlisted: z
+        .boolean()
+        .optional()
+        .describe("Filter for CEX listed tokens"),
+      holders: z
+        .object({ min: z.number().optional(), max: z.number().optional() })
+        .optional()
+        .describe("Number of holders range"),
+      price_change_24h: z
+        .object({ min: z.number().optional(), max: z.number().optional() })
+        .optional()
+        .describe("24h price change range in percentage"),
+      liquidity: z
+        .object({ min: z.number().optional(), max: z.number().optional() })
+        .optional()
+        .describe("Liquidity range in USD"),
     })
     .optional(),
   sorting: z
@@ -68,36 +98,58 @@ export default class TokensSearchAPI {
       if (filters.chain_id) filterParts.push(`chain_id:=${filters.chain_id}`);
       if (filters.chain) filterParts.push(`chains:=${filters.chain}`);
       if (filters.marketcap) {
-        if (filters.marketcap.min !== undefined) filterParts.push(`marketcap:>=${filters.marketcap.min}`);
-        if (filters.marketcap.max !== undefined) filterParts.push(`marketcap:<=${filters.marketcap.max}`);
+        if (filters.marketcap.min !== undefined)
+          filterParts.push(`marketcap:>=${filters.marketcap.min}`);
+        if (filters.marketcap.max !== undefined)
+          filterParts.push(`marketcap:<=${filters.marketcap.max}`);
       }
       if (filters.volumeMcapRatio) {
-        if (filters.volumeMcapRatio.min !== undefined) filterParts.push(`volumeMcapRatio:>=${filters.volumeMcapRatio.min}`);
-        if (filters.volumeMcapRatio.max !== undefined) filterParts.push(`volumeMcapRatio:<=${filters.volumeMcapRatio.max}`);
+        if (filters.volumeMcapRatio.min !== undefined)
+          filterParts.push(`volumeMcapRatio:>=${filters.volumeMcapRatio.min}`);
+        if (filters.volumeMcapRatio.max !== undefined)
+          filterParts.push(`volumeMcapRatio:<=${filters.volumeMcapRatio.max}`);
       }
-      if (filters.authenticity_score !== undefined) filterParts.push(`authenticity_score:>=${filters.authenticity_score}`);
+      if (filters.authenticity_score !== undefined)
+        filterParts.push(`authenticity_score:>=${filters.authenticity_score}`);
       if (filters.price) {
-        if (filters.price.min !== undefined) filterParts.push(`price:>=${filters.price.min}`);
-        if (filters.price.max !== undefined) filterParts.push(`price:<=${filters.price.max}`);
+        if (filters.price.min !== undefined)
+          filterParts.push(`price:>=${filters.price.min}`);
+        if (filters.price.max !== undefined)
+          filterParts.push(`price:<=${filters.price.max}`);
       }
-      if (filters.stablecoin !== undefined) filterParts.push(`stablecoin:=${filters.stablecoin}`);
-      if (filters.primitive) filterParts.push(`primitive:=${filters.primitive}`);
-      if (filters.cexlisted !== undefined) filterParts.push(`cexlisted:=${filters.cexlisted}`);
+      if (filters.stablecoin !== undefined)
+        filterParts.push(`stablecoin:=${filters.stablecoin}`);
+      if (filters.primitive)
+        filterParts.push(`primitive:=${filters.primitive}`);
+      if (filters.cexlisted !== undefined)
+        filterParts.push(`cexlisted:=${filters.cexlisted}`);
       if (filters.holders) {
-        if (filters.holders.min !== undefined) filterParts.push(`holders:>=${filters.holders.min}`);
-        if (filters.holders.max !== undefined) filterParts.push(`holders:<=${filters.holders.max}`);
+        if (filters.holders.min !== undefined)
+          filterParts.push(`holders:>=${filters.holders.min}`);
+        if (filters.holders.max !== undefined)
+          filterParts.push(`holders:<=${filters.holders.max}`);
       }
       if (filters.price_change_24h) {
-        if (filters.price_change_24h.min !== undefined) filterParts.push(`price_change_24h:>=${filters.price_change_24h.min}`);
-        if (filters.price_change_24h.max !== undefined) filterParts.push(`price_change_24h:<=${filters.price_change_24h.max}`);
+        if (filters.price_change_24h.min !== undefined)
+          filterParts.push(
+            `price_change_24h:>=${filters.price_change_24h.min}`
+          );
+        if (filters.price_change_24h.max !== undefined)
+          filterParts.push(
+            `price_change_24h:<=${filters.price_change_24h.max}`
+          );
       }
       if (filters.liquidity) {
-        if (filters.liquidity.min !== undefined) filterParts.push(`liquidity:>=${filters.liquidity.min}`);
-        if (filters.liquidity.max !== undefined) filterParts.push(`liquidity:<=${filters.liquidity.max}`);
+        if (filters.liquidity.min !== undefined)
+          filterParts.push(`liquidity:>=${filters.liquidity.min}`);
+        if (filters.liquidity.max !== undefined)
+          filterParts.push(`liquidity:<=${filters.liquidity.max}`);
       }
     }
     const filterBy = filterParts.join(" && ");
-    const sortBy = sorting ? `${sorting.field}:${sorting.direction}` : "token_ranking:asc";
+    const sortBy = sorting
+      ? `${sorting.field}:${sorting.direction}`
+      : "token_ranking:asc";
     const limit = 10;
     // Typesense expects a query object
     const query = {
