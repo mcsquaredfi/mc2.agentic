@@ -6,7 +6,9 @@
   "private": true,
   "scripts": {
     "start": "vite dev",
-    "deploy": "vite build && wrangler deploy",
+    "build": "vite build",
+    "deploy": "wrangler deploy",
+    "build:deploy": "vite build && wrangler deploy",
     "test": "vitest",
     "types": "wrangler types",
     "format": "prettier --write .",

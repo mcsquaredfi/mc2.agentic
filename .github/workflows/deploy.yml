@@ -36,6 +36,9 @@ jobs:
       - name: 🔍 Type check
         run: pnpm run types
 
+      - name: 🔨 Build
+        run: pnpm run build
+
       - name: 🚀 Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
