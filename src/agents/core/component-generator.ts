@@ -12,6 +12,8 @@ const UIComponentSchema = z.object({
 });
 
 export class ComponentGenerator {
+  private componentCache = new Map<string, any>();
+
   constructor(private env: Env) {}
 
   private getModel() {
@@ -20,16 +22,50 @@ export class ComponentGenerator {
     })("gpt-4o-2024-11-20");
   }
 
+  private generateCacheKey(toolResults: any[], context: string): string {
+    // Create a cache key based on context and tool result types
+    const toolTypes = toolResults.map(r => r.toolName).sort().join(',');
+    const contextHash = context.toLowerCase().replace(/\s+/g, '_').substring(0, 50);
+    
+    // Include data structure in cache key for more specific caching
+    const dataStructure = toolResults.map(r => {
+      if (!r.result || r.result === null || r.result === undefined) {
+        return 'empty';
+      }
+      if (Array.isArray(r.result)) {
+        return `array_${r.result.length}`;
+      }
+      if (typeof r.result === 'object') {
+        return `object_${Object.keys(r.result).length}`;
+      }
+      return 'primitive';
+    }).sort().join('_');
+    
+    return `${contextHash}_${toolTypes}_${dataStructure}`;
+  }
+
   async generateStyledComponent(
     toolResults: any[],
     context: string
   ): Promise<z.infer<typeof UIComponentSchema>> {
+    const componentStartTime = Date.now();
+    
+    // Check cache first
+    const cacheKey = this.generateCacheKey(toolResults, context);
+    if (this.componentCache.has(cacheKey)) {
+      const cachedTime = Date.now() - componentStartTime;
+      console.log(`⚡ UI component served from cache in ${cachedTime}ms (key: ${cacheKey})`);
+      return this.componentCache.get(cacheKey);
+    }
+    
     const model = this.getModel();
     
+    console.log(`🎨 Starting UI component generation...`);
     console.log("🔧 ComponentGenerator: Processing tool results:", {
       toolResultsCount: toolResults.length,
       toolResults: toolResults,
-      context: context
+      context: context,
+      cacheKey: cacheKey
     });
 
     const prompt = `
@@ -139,23 +175,36 @@ CRITICAL: Extract the actual data arrays from toolResults and put them in the pr
 `;
 
     try {
+      const aiGenerationStart = Date.now();
+      console.log(`🤖 Starting AI component generation...`);
+      
       const result = await generateObject({
         model,
         schema: UIComponentSchema,
         prompt,
       });
 
-      console.log("Generated UI component:", {
+      const aiGenerationTime = Date.now() - aiGenerationStart;
+      const totalComponentTime = Date.now() - componentStartTime;
+
+      console.log(`🎨 UI component generated in ${totalComponentTime}ms:`, {
+        aiGeneration: `${aiGenerationTime}ms`,
         type: result.object.componentType,
         explanation: result.object.explanation,
         codeLength: result.object.componentCode.length,
         propsKeys: Object.keys(result.object.props || {}),
-        propsData: result.object.props
+        propsData: result.object.props,
+        cacheKey: cacheKey
       });
+
+      // Cache the result for future use
+      this.componentCache.set(cacheKey, result.object);
+      console.log(`💾 UI component cached with key: ${cacheKey}`);
 
       return result.object;
     } catch (error) {
-      console.error("Error generating UI component:", error);
+      const componentErrorTime = Date.now() - componentStartTime;
+      console.error(`❌ Error generating UI component after ${componentErrorTime}ms:`, error);
       throw new Error(`Failed to generate UI component: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

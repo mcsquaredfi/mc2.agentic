@@ -51,11 +51,14 @@ export class MCPManager {
 
   getTools(): Record<string, any> {
     if (!this.mcpConnected) {
+      console.warn("MCP not connected, returning empty tools");
       return {};
     }
 
     try {
-      return this.mcp.getAITools();
+      const tools = this.mcp.getAITools();
+      console.log("MCP tools retrieved:", Object.keys(tools));
+      return tools;
     } catch (error) {
       console.error("Error getting MCP tools:", error);
       this.mcpConnected = false;

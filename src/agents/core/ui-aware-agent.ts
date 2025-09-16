@@ -165,21 +165,20 @@ export class UIAwareMc2fiAgent extends Mc2fiChatAgent {
     const messageLower = userMessage.toLowerCase();
     const hasUITrigger = uiTriggers.some(trigger => messageLower.includes(trigger));
     
-    // Check if tool results contain visualizable data
-    const hasVisualizableData = toolResults.some(result => {
-      const resultStr = JSON.stringify(result).toLowerCase();
-      return uiTriggers.some(trigger => resultStr.includes(trigger)) ||
-             // Check for common data structures
-             (typeof result === 'object' && result !== null && 
-              (Array.isArray(result) || Object.keys(result).length > 0));
-    });
+    // Generate UI if we have tool results and UI triggers, regardless of data validity
+    // The AI can still generate meaningful UI even with empty/null results
+    const shouldGenerate = hasUITrigger;
     
-    const shouldGenerate = hasUITrigger || hasVisualizableData;
     console.log("UI Generation Decision:", {
       hasUITrigger,
-      hasVisualizableData,
       shouldGenerate,
-      toolResultsCount: toolResults.length
+      toolResultsCount: toolResults.length,
+      toolResults: toolResults.map(r => ({
+        toolName: r.toolName,
+        hasResult: !!r.result,
+        resultType: typeof r.result,
+        resultPreview: r.result ? JSON.stringify(r.result).substring(0, 100) : 'null/undefined'
+      }))
     });
     
     return shouldGenerate;
