@@ -1,5 +1,5 @@
 import { routeAgentRequest } from "agents";
-import Mc2fiChatAgent from "./agents/mc2fi-agent";
+import { Mc2fiChatAgent } from "./agents/mc2fi-agent";
 import type { Env } from "./agents/types";
 
 /**

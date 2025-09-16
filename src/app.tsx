@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "agents/ai-react";
-import type { Message } from "@ai-sdk/react";
+import type { UIMessage as Message } from "ai";
 import { APPROVAL } from "./shared";
 import type { tools } from "./tools";
 
@@ -12,6 +12,8 @@ import { Input } from "@/components/input/Input";
 import { Avatar } from "@/components/avatar/Avatar";
 import { Toggle } from "@/components/toggle/Toggle";
 import { Tooltip } from "@/components/tooltip/Tooltip";
+import { SafeJSXRenderer } from "@/components/dynamic-renderer";
+import { MarkdownRenderer } from "@/components/markdown";
 
 // Icon imports
 import {
@@ -36,6 +38,20 @@ function getOrCreateAgentSessionId(): string {
     localStorage.setItem(key, id);
   }
   return id;
+}
+
+// Extended message type to include UI components
+interface ExtendedMessage extends Message {
+  uiComponent?: {
+    componentType: string;
+    jsx?: string;
+    componentCode?: string;
+    propsSchema?: Record<string, any>;
+    props?: Record<string, any>;
+  };
+  isQuickResponse?: boolean;
+  requestId?: string;
+  processingTimeMs?: number;
 }
 
 export default function Chat() {
@@ -80,19 +96,102 @@ export default function Chat() {
   const agent = useAgent({
     agent: "chat",
     name: agentSessionId,
+        onMessage: (message) => {
+          console.log("Received message from agent:", message);
+          try {
+            const data = JSON.parse(message.data);
+            if (data.type === "response") {
+              const agentMessage: ExtendedMessage = {
+                id: data.requestId || Date.now().toString(),
+                role: "assistant" as const,
+                parts: [{ type: "text" as const, text: data.content }],
+                isQuickResponse: data.isQuickResponse,
+                requestId: data.requestId,
+                processingTimeMs: data.processingTimeMs,
+              };
+
+              // Add UI component if present in the response
+              if (data.uiComponent) {
+                console.log("🎨 UI Component received:", data.uiComponent);
+                agentMessage.uiComponent = data.uiComponent;
+              }
+
+              if (data.isQuickResponse) {
+                // Add quick response immediately
+                setMessages(prev => [...prev, agentMessage]);
+                console.log("⚡ Quick response received");
+              } else {
+                // Replace or add detailed response
+                setMessages(prev => {
+                  // Remove any existing quick response for this requestId
+                  const filtered = prev.filter(m => 
+                    !(m as ExtendedMessage).requestId || 
+                    (m as ExtendedMessage).requestId !== data.requestId ||
+                    !(m as ExtendedMessage).isQuickResponse
+                  );
+                  return [...filtered, agentMessage];
+                });
+                console.log("📊 Detailed response received");
+              }
+            }
+          } catch (error) {
+            console.error("Error parsing agent message:", error);
+          }
+        },
   });
 
   const {
     messages: agentMessages,
-    input: agentInput,
-    handleInputChange: handleAgentInputChange,
-    handleSubmit: handleAgentSubmit,
-    addToolResult,
-    clearHistory,
+    setMessages,
+    error,
+    id,
   } = useAgentChat({
     agent,
-    maxSteps: 5,
   });
+
+  // For AI SDK v5, we need to manage input state ourselves
+  const [agentInput, setAgentInput] = useState("");
+
+  const handleAgentInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAgentInput(e.target.value);
+  };
+
+  const handleAgentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!agentInput.trim()) return;
+    
+    // Add user message using the new UIMessage format
+    const userMessage = {
+      id: Date.now().toString(),
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: agentInput }],
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    
+    // Send message to agent via WebSocket
+    const messageToSend = {
+      type: "chat",
+      content: agentInput,
+      timestamp: Date.now(),
+    };
+    
+    agent.send(JSON.stringify(messageToSend));
+    setAgentInput("");
+  };
+
+  // Mock functions for compatibility
+  const addToolResult = (result: any) => {
+    console.log("addToolResult called with:", result);
+    // TODO: Implement tool result handling
+  };
+
+  const clearHistory = () => {
+    setMessages([]);
+  };
+
+  // Debug logging
+  console.log("useAgentChat result:", { messages: agentMessages, setMessages, error, id });
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -102,10 +201,11 @@ export default function Chat() {
   const pendingToolCallConfirmation = agentMessages.some((m: Message) =>
     m.parts?.some(
       (part) =>
-        part.type === "tool-invocation" &&
-        part.toolInvocation.state === "call" &&
+        part.type.startsWith("tool-") &&
+        "state" in part &&
+        part.state === "input-available" &&
         toolsRequiringConfirmation.includes(
-          part.toolInvocation.toolName as keyof typeof tools
+          part.type.replace("tool-", "") as keyof typeof tools
         )
     )
   );
@@ -116,7 +216,7 @@ export default function Chat() {
 
   return (
     <div className="h-[100vh] w-full p-4 flex justify-center items-center bg-fixed overflow-hidden">
-      <div className="h-[calc(100vh-2rem)] w-full mx-auto max-w-lg flex flex-col shadow-xl rounded-md overflow-hidden relative border border-neutral-300 dark:border-neutral-800">
+      <div className="h-[calc(100vh-2rem)] w-full mx-auto max-w-6xl flex flex-col shadow-xl rounded-md overflow-hidden relative border border-neutral-300 dark:border-neutral-800">
         <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-3 sticky top-0 z-10">
           <div className="flex items-center justify-center h-8 w-8">
             <svg
@@ -202,7 +302,7 @@ export default function Chat() {
             </div>
           )}
 
-          {agentMessages.map((m: Message, index) => {
+          {agentMessages.map((m: ExtendedMessage, index: number) => {
             const isUser = m.role === "user";
             const showAvatar =
               index === 0 || agentMessages[index - 1]?.role !== m.role;
@@ -219,7 +319,7 @@ export default function Chat() {
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`flex gap-2 max-w-[85%] ${
+                    className={`flex gap-2 ${isUser ? "max-w-[70%]" : "max-w-[90%]"} ${
                       isUser ? "flex-row-reverse" : "flex-row"
                     }`}
                   >
@@ -237,10 +337,12 @@ export default function Chat() {
                               // biome-ignore lint/suspicious/noArrayIndexKey: it's fine here
                               <div key={i}>
                                 <Card
-                                  className={`p-3 rounded-md bg-neutral-100 dark:bg-neutral-900 ${
+                                  className={`p-3 rounded-md ${
                                     isUser
-                                      ? "rounded-br-none"
-                                      : "rounded-bl-none border-assistant-border"
+                                      ? "bg-neutral-100 dark:bg-neutral-900 rounded-br-none"
+                                      : (m as ExtendedMessage).isQuickResponse
+                                      ? "bg-blue-50 dark:bg-blue-900/20 rounded-bl-none border-blue-200 dark:border-blue-800"
+                                      : "bg-neutral-100 dark:bg-neutral-900 rounded-bl-none border-assistant-border"
                                   } ${
                                     part.text.startsWith("scheduled message")
                                       ? "border-accent/50"
@@ -254,36 +356,60 @@ export default function Chat() {
                                       🕒
                                     </span>
                                   )}
-                                  <p className="text-sm whitespace-pre-wrap">
-                                    {part.text.replace(
-                                      /^scheduled message: /,
-                                      ""
-                                    )}
-                                  </p>
-                                </Card>
-                                <p
-                                  className={`text-xs text-muted-foreground mt-1 ${
-                                    isUser ? "text-right" : "text-left"
-                                  }`}
-                                >
-                                  {formatTime(
-                                    new Date(m.createdAt as unknown as string)
+                                  {(m as ExtendedMessage).isQuickResponse && (
+                                    <span className="absolute -top-2 -right-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full">
+                                      ⚡ Quick
+                                    </span>
                                   )}
-                                </p>
+                                  {!isUser ? (
+                                    <MarkdownRenderer 
+                                      content={part.text.replace(/^scheduled message: /, "")}
+                                      className=""
+                                    />
+                                  ) : (
+                                    <p className="text-sm whitespace-pre-wrap">
+                                      {part.text.replace(/^scheduled message: /, "")}
+                                    </p>
+                                  )}
+                                </Card>
+                                
+                                {/* Render UI Component if present */}
+                                {!isUser && m.uiComponent && (
+                                  <div className="mt-3">
+                                    <SafeJSXRenderer 
+                                      component={m.uiComponent}
+                                      className="max-w-full"
+                                    />
+                                  </div>
+                                )}
+                                
+                                <div className={`text-xs text-muted-foreground mt-1 ${
+                                  isUser ? "text-right" : "text-left"
+                                }`}>
+                                  <div>{formatTime(new Date())}</div>
+                                  {(m as ExtendedMessage).processingTimeMs && (
+                                    <div className="text-blue-600 dark:text-blue-400">
+                                      Generated in {(m as ExtendedMessage).processingTimeMs}ms
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             );
                           }
 
-                          if (part.type === "tool-invocation") {
-                            const toolInvocation = part.toolInvocation;
-                            const toolCallId = toolInvocation.toolCallId;
+                          if (part.type.startsWith("tool-")) {
+                            const toolName = part.type.replace("tool-", "");
 
                             if (
+                              "toolCallId" in part &&
+                              "state" in part &&
+                              "input" in part &&
                               toolsRequiringConfirmation.includes(
-                                toolInvocation.toolName as keyof typeof tools
+                                toolName as keyof typeof tools
                               ) &&
-                              toolInvocation.state === "call"
+                              part.state === "input-available"
                             ) {
+                              const toolCallId = part.toolCallId;
                               return (
                                 <Card
                                   // biome-ignore lint/suspicious/noArrayIndexKey: it's fine here
@@ -297,9 +423,7 @@ export default function Chat() {
                                         className="text-[#F48120]"
                                       />
                                     </div>
-                                    <h4 className="font-medium">
-                                      {toolInvocation.toolName}
-                                    </h4>
+                                    <h4 className="font-medium">{toolName}</h4>
                                   </div>
 
                                   <div className="mb-3">
@@ -307,11 +431,7 @@ export default function Chat() {
                                       Arguments:
                                     </h5>
                                     <pre className="bg-background/80 p-2 rounded-md text-xs overflow-auto">
-                                      {JSON.stringify(
-                                        toolInvocation.args,
-                                        null,
-                                        2
-                                      )}
+                                      {JSON.stringify(part.input, null, 2)}
                                     </pre>
                                   </div>
 
@@ -322,7 +442,7 @@ export default function Chat() {
                                       onClick={() =>
                                         addToolResult({
                                           toolCallId,
-                                          result: APPROVAL.NO,
+                                          output: APPROVAL.NO,
                                         })
                                       }
                                     >
@@ -335,7 +455,7 @@ export default function Chat() {
                                         onClick={() =>
                                           addToolResult({
                                             toolCallId,
-                                            result: APPROVAL.YES,
+                                            output: APPROVAL.YES,
                                           })
                                         }
                                       >
@@ -362,15 +482,7 @@ export default function Chat() {
 
         {/* Input Area */}
         <form
-          onSubmit={(e) =>
-            handleAgentSubmit(e, {
-              data: {
-                annotations: {
-                  hello: "world",
-                },
-              },
-            })
-          }
+          onSubmit={handleAgentSubmit}
           className="p-3 bg-input-background absolute bottom-0 left-0 right-0 z-10 border-t border-neutral-300 dark:border-neutral-800"
         >
           <div className="flex items-center gap-2">
@@ -383,7 +495,7 @@ export default function Chat() {
                     : "Type your message..."
                 }
                 className="pl-4 pr-10 py-2 w-full rounded-full"
-                value={agentInput}
+                value={agentInput || ""}
                 onChange={handleAgentInputChange}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -399,7 +511,7 @@ export default function Chat() {
               type="submit"
               shape="square"
               className="rounded-full h-10 w-10 flex-shrink-0"
-              disabled={pendingToolCallConfirmation || !agentInput.trim()}
+              disabled={pendingToolCallConfirmation || !agentInput?.trim()}
             >
               <PaperPlaneRight size={16} />
             </Button>

@@ -1,12 +1,8 @@
 // via https://github.com/vercel/ai/blob/main/examples/next-openai/app/api/use-chat-human-in-the-loop/utils.ts
 
-import { formatDataStreamPart, type Message } from "@ai-sdk/ui-utils";
-import {
-  convertToCoreMessages,
-  type DataStreamWriter,
-  type ToolExecutionOptions,
-  type ToolSet,
-} from "ai";
+import { formatDataStreamPart } from "@ai-sdk/ui-utils";
+import type { UIMessage as Message } from "ai";
+import { convertToCoreMessages, type ToolSet } from "ai";
 import type { z } from "zod";
 import { APPROVAL } from "./shared";
 
@@ -27,88 +23,75 @@ function isValidToolName<K extends PropertyKey, T extends object>(
  * @param executionFunctions - Map of tool names to execute functions
  * @returns Promise resolving to the processed messages
  */
-export async function processToolCalls<
-  Tools extends ToolSet,
-  ExecutableTools extends {
-    // biome-ignore lint/complexity/noBannedTypes: it's fine
-    [Tool in keyof Tools as Tools[Tool] extends { execute: Function }
-      ? never
-      : Tool]: Tools[Tool];
-  },
->({
+// Simplified tool processing for AI SDK v5 compatibility
+export async function processToolCalls({
   dataStream,
   messages,
   executions,
 }: {
-  tools: Tools; // used for type inference
-  dataStream: DataStreamWriter;
+  tools: any; // used for type inference
+  dataStream: any; // DataStreamWriter is no longer available in AI SDK v5
   messages: Message[];
-  executions: {
-    [K in keyof Tools & keyof ExecutableTools]?: (
-      args: z.infer<ExecutableTools[K]["parameters"]>,
-      context: ToolExecutionOptions
-    ) => Promise<unknown>;
-  };
+  executions: Record<string, (args: any, context: any) => Promise<unknown>>;
 }): Promise<Message[]> {
   const lastMessage = messages[messages.length - 1];
   const parts = lastMessage.parts;
   if (!parts) return messages;
 
   const processedParts = await Promise.all(
-    parts.map(async (part) => {
-      // Only process tool invocations parts
-      if (part.type !== "tool-invocation") return part;
+    parts.map(async (part: any) => {
+      // Only process tool parts
+      if (!part.type.startsWith("tool-")) return part;
 
-      const { toolInvocation } = part;
-      const toolName = toolInvocation.toolName;
+      const toolName = part.type.replace("tool-", "");
 
-      // Only continue if we have an execute function for the tool (meaning it requires confirmation) and it's in a 'result' state
-      if (!(toolName in executions) || toolInvocation.state !== "result")
-        return part;
+      // Only continue if we have an execute function for the tool (meaning it requires confirmation)
+      if (!(toolName in executions)) return part;
 
-      let result: unknown;
-
-      if (toolInvocation.result === APPROVAL.YES) {
-        // Get the tool and check if the tool has an execute function.
-        if (
-          !isValidToolName(toolName, executions) ||
-          toolInvocation.state !== "result"
-        ) {
-          return part;
-        }
-
-        const toolInstance = executions[toolName];
-        if (toolInstance) {
-          result = await toolInstance(toolInvocation.args, {
-            messages: convertToCoreMessages(messages),
-            toolCallId: toolInvocation.toolCallId,
-          });
-        } else {
-          result = "Error: No execute function found on tool";
-        }
-      } else if (toolInvocation.result === APPROVAL.NO) {
-        result = "Error: User denied access to tool execution";
-      } else {
-        // For any unhandled responses, return the original part.
+      // Check if this is a tool that needs user confirmation
+      if (part.state === "input-available") {
+        // This tool is waiting for user confirmation, don't process it yet
         return part;
       }
 
-      // Forward updated tool result to the client.
-      dataStream.write(
-        formatDataStreamPart("tool_result", {
-          toolCallId: toolInvocation.toolCallId,
-          result,
-        })
-      );
+      // If we have a result from user confirmation, process it
+      if (part.state === "result" && part.result) {
+        let result: unknown;
 
-      // Return updated toolInvocation with the actual result.
-      return {
-        ...part,
-        toolInvocation: {
-          ...toolInvocation,
+        if (part.result === APPROVAL.YES) {
+          const toolInstance = executions[toolName];
+          if (toolInstance && part.input) {
+            result = await toolInstance(part.input, {
+              messages: convertToCoreMessages(messages),
+              toolCallId: part.toolCallId || "",
+            });
+          } else {
+            result = "Error: No execute function found on tool";
+          }
+        } else if (part.result === APPROVAL.NO) {
+          result = "Error: User denied access to tool execution";
+        } else {
+          return part;
+        }
+
+        // Forward updated tool result to the client.
+        if (dataStream && dataStream.write) {
+          dataStream.write(
+            formatDataStreamPart("tool_result", {
+              toolCallId: part.toolCallId || "",
+              result,
+            })
+          );
+        }
+
+        // Return updated part with the actual result.
+        return {
+          ...part,
           result,
-        },
-      };
+        };
+      }
+
+      return part;
     })
   );
 

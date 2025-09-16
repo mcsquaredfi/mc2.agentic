@@ -5,7 +5,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { agentContext } from "./server";
+import { agentContext } from "./agents/context";
 import {
   unstable_getSchedulePrompt,
   unstable_scheduleSchema,
@@ -18,7 +18,7 @@ import {
  */
 const getWeatherInformation = tool({
   description: "show the weather in a given city to the user",
-  parameters: z.object({ city: z.string() }),
+  inputSchema: z.object({ city: z.string() }),
   // Omitting execute function makes this tool require human confirmation
 });
 
@@ -29,7 +29,7 @@ const getWeatherInformation = tool({
  */
 const getLocalTime = tool({
   description: "get the local time for a specified location",
-  parameters: z.object({ location: z.string() }),
+  inputSchema: z.object({ location: z.string() }),
   execute: async ({ location }) => {
     console.log(`Getting local time for ${location}`);
     return "10am";
@@ -38,7 +38,7 @@ const getLocalTime = tool({
 
 const scheduleTask = tool({
   description: "A tool to schedule a task to be executed at a later time",
-  parameters: unstable_scheduleSchema,
+  inputSchema: unstable_scheduleSchema,
   execute: async ({ when, description }) => {
     // we can now read the agent context from the ALS store
     const agent = agentContext.getStore();

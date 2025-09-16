@@ -56,6 +56,9 @@ export abstract class AbstractBaseAgent implements BaseAgent {
     };
 
     // Get target agent's Durable Object
+    if (!this.env.AGENT_DO) {
+      throw new Error("AGENT_DO binding not available");
+    }
     const targetId = this.env.AGENT_DO.idFromName(agentName);
     const targetAgent = this.env.AGENT_DO.get(targetId);
 

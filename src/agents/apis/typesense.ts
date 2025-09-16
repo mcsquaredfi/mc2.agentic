@@ -28,7 +28,7 @@ export default class Typesense {
       console.error("Typesense request error:", {
         url,
         error: err,
-        errorMessage: err.message,
+        errorMessage: err instanceof Error ? err.message : String(err),
       });
       throw err;
     }
@@ -38,7 +38,7 @@ export default class Typesense {
     try {
       return await this.request(`/collections/${collection}/documents/${id}`);
     } catch (err) {
-      if (err.message.includes("404")) return null;
+      if (err instanceof Error && err.message.includes("404")) return null;
       throw err;
     }
   }
@@ -66,7 +66,7 @@ export default class Typesense {
     } catch (err) {
       console.error("Error searching tokens: ", {
         error: err,
-        errorMessage: err.message,
+        errorMessage: err instanceof Error ? err.message : String(err),
         query,
         options,
       });
@@ -98,7 +98,7 @@ export default class Typesense {
     } catch (err) {
       console.error("Error searching portfolios: ", {
         error: err,
-        errorMessage: err.message,
+        errorMessage: err instanceof Error ? err.message : String(err),
         query,
         options,
       });
