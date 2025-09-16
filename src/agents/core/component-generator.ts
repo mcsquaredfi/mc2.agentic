@@ -19,7 +19,7 @@ export class ComponentGenerator {
   private getModel() {
     return createOpenAI({
       baseURL: "https://gateway.ai.cloudflare.com/v1/9e6fbc31e203e0af03a5f03a21368cf6/agents2/openai",
-    })("gpt-4o-2024-11-20");
+    })("gpt-4o-mini"); // Much faster model for UI generation
   }
 
   private generateCacheKey(toolResults: any[], context: string): string {
@@ -69,62 +69,29 @@ export class ComponentGenerator {
     });
 
     const prompt = `
-You are generating a React component that will be displayed in a chat interface. You have access to a comprehensive base component library for creating sophisticated yield data visualizations.
+You are generating a React component that will be displayed in a chat interface. Create a simple, effective data visualization.
 
-## AVAILABLE BASE COMPONENTS:
-${Object.entries(BASE_COMPONENT_LIBRARY).map(([name, code]) => `### ${name}:\n\`\`\`jsx\n${code}\n\`\`\``).join('\n\n')}
+## AVAILABLE BASE COMPONENTS (use these patterns):
+- APYIndicator: <span className="text-green-500 font-bold">{value}%</span>
+- RiskBadge: <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">{level}</span>
+- TVLDisplay: <span className="text-blue-600 font-semibold">\${value.toLocaleString()}</span>
+- Card: <div className="rounded-lg p-4 bg-neutral-100 dark:bg-neutral-900">
 
-## COMPONENT USAGE GUIDELINES:
-${COMPONENT_USAGE_GUIDELINES}
-
-## DESIGN SYSTEM RULES:
-1. **Color Scheme**:
-   - Primary accent: #F48120 (use for highlights, icons, important elements)
-   - Background: bg-neutral-100 dark:bg-neutral-900 (for cards)
-   - Text: text-neutral-900 dark:text-neutral-50 (primary text)
-   - Muted text: text-muted-foreground (secondary text)
-   - Borders: border-neutral-300 dark:border-neutral-800
-
-2. **Component Styling**:
-   - Use Tailwind CSS classes exclusively
-   - Cards: "rounded-lg p-4 bg-neutral-100 dark:bg-neutral-900"
-   - Buttons: Use existing Button component with proper variants
-   - Consistent spacing: gap-2, gap-3, gap-4 for layouts
-   - Rounded corners: rounded-md, rounded-lg
-
-3. **Layout Patterns**:
-   - Grid layouts: "grid grid-cols-2 gap-4" or "grid grid-cols-3 gap-3"
-   - Flex layouts: "flex items-center gap-2"
-   - Responsive: "max-w-md mx-auto" for centered content
-   - Proper padding: p-3, p-4, p-6
-
-4. **Typography**:
-   - Headers: "text-lg font-semibold" or "text-xl font-bold"
-   - Body: "text-sm" or "text-base"
-   - Muted: "text-muted-foreground text-xs"
-   - Proper hierarchy with consistent sizing
-
-5. **Interactive Elements**:
-   - Hover states: "hover:bg-neutral-200 dark:hover:bg-neutral-800"
-   - Focus states: Use existing focus utilities
-   - Transitions: "transition-colors duration-200"
-
-6. **DeFi Specific Patterns**:
-   - Price displays: Large, bold numbers with color coding
-   - Charts: Use consistent card styling with proper padding
-   - Token info: Grid layout with icon, name, price
+## DESIGN SYSTEM (simplified):
+- Colors: text-green-500 (positive), text-red-500 (negative), text-blue-600 (neutral)
+- Cards: "rounded-lg p-4 bg-neutral-100 dark:bg-neutral-900"
+- Layout: "grid grid-cols-2 gap-4" or "flex items-center gap-2"
+- Typography: "text-lg font-semibold" for headers, "text-sm" for body
    - Yield data: Highlighted percentages with proper formatting
 
 ## CURRENT CONTEXT:
 User Message: "${context}"
 Tool Results: ${JSON.stringify(toolResults, null, 2)}
 
-## DATA EXTRACTION REQUIREMENTS:
-1. Extract the actual data from toolResults and structure it as props
-2. Look for arrays of data (vaults, tokens, strategies, etc.)
-3. If toolResults contains search results, extract the data array
-4. Structure props as: { vaults: [...], tokens: [...], or data: [...] }
-5. The props should contain the actual data to display, not empty arrays
+## DATA EXTRACTION:
+- Extract data from toolResults and put in props
+- Look for arrays in toolResults (vaults, tokens, etc.)
+- Structure props as: { vaults: [...], tokens: [...], or data: [...] }
 
 ## REQUIREMENTS:
 1. Generate a React component that displays the tool results effectively
@@ -174,15 +141,23 @@ If toolResults contains token data, structure props as:
 CRITICAL: Extract the actual data arrays from toolResults and put them in the props field!
 `;
 
-    try {
-      const aiGenerationStart = Date.now();
-      console.log(`🤖 Starting AI component generation...`);
-      
-      const result = await generateObject({
-        model,
-        schema: UIComponentSchema,
-        prompt,
-      });
+        try {
+          const aiGenerationStart = Date.now();
+          console.log(`🤖 Starting AI component generation...`);
+          
+          // Add timeout to prevent UI generation from taking too long
+          const UI_GENERATION_TIMEOUT = 15000; // 15 seconds max
+          
+          const result = await Promise.race([
+            generateObject({
+              model,
+              schema: UIComponentSchema,
+              prompt,
+            }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('UI generation timeout')), UI_GENERATION_TIMEOUT)
+            )
+          ]) as any;
 
       const aiGenerationTime = Date.now() - aiGenerationStart;
       const totalComponentTime = Date.now() - componentStartTime;
@@ -202,10 +177,28 @@ CRITICAL: Extract the actual data arrays from toolResults and put them in the pr
       console.log(`💾 UI component cached with key: ${cacheKey}`);
 
       return result.object;
-    } catch (error) {
-      const componentErrorTime = Date.now() - componentStartTime;
-      console.error(`❌ Error generating UI component after ${componentErrorTime}ms:`, error);
-      throw new Error(`Failed to generate UI component: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+        } catch (error) {
+          const componentErrorTime = Date.now() - componentStartTime;
+          console.error(`❌ Error generating UI component after ${componentErrorTime}ms:`, error);
+          
+          // Return a simple fallback component instead of throwing
+          const fallbackComponent = {
+            componentCode: `
+<div className="rounded-lg p-4 bg-neutral-100 dark:bg-neutral-900 max-w-md mx-auto">
+  <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50 mb-4">Data Analysis</h2>
+  <div className="text-sm text-muted-foreground">
+    <p>🔍 Analyzing data...</p>
+    <p>📊 ${toolResults.length} tool result(s) received</p>
+    <p>⚠️ UI generation took too long, showing simplified view</p>
+  </div>
+</div>`,
+            props: { toolResults },
+            explanation: "Fallback component due to UI generation timeout",
+            componentType: "data-display" as const
+          };
+          
+          console.log(`🔄 Returning fallback UI component after ${componentErrorTime}ms`);
+          return fallbackComponent;
+        }
   }
 }
