@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "agents/ai-react";
 import type { UIMessage } from "ai";
@@ -18,6 +18,12 @@ import { FeedbackCollector } from "@/components/feedback/FeedbackCollector";
 import { Message, MessageContent, MessageAvatar } from "@/components/ai-elements/message";
 import { Response } from "@/components/ai-elements/response";
 import { Actions, Action } from "@/components/ai-elements/actions";
+import { 
+  Conversation, 
+  ConversationContent, 
+  ConversationEmptyState,
+  ConversationScrollButton 
+} from "@/components/ai-elements/conversation";
 
 // Icon imports
 import {
@@ -58,6 +64,194 @@ interface ExtendedMessage extends UIMessage {
   processingTimeMs?: number;
 }
 
+// ChatMessage component for better code organization
+interface ChatMessageProps {
+  message: ExtendedMessage;
+  index: number;
+  messages: ExtendedMessage[];
+  showDebug: boolean;
+  onFeedback: (feedback: any) => void;
+  onToolResult: (result: any) => void;
+  toolsRequiringConfirmation: (keyof typeof tools)[];
+}
+
+function ChatMessage({
+  message,
+  index,
+  messages,
+  showDebug,
+  onFeedback,
+  onToolResult,
+  toolsRequiringConfirmation,
+}: ChatMessageProps) {
+  const isUser = message.role === "user";
+  const showAvatar = index === 0 || messages[index - 1]?.role !== message.role;
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <div>
+      {showDebug && (
+        <pre className="text-xs text-muted-foreground overflow-scroll mb-2">
+          {JSON.stringify(message, null, 2)}
+        </pre>
+      )}
+      
+      <Message from={message.role}>
+        {showAvatar && (
+          <MessageAvatar 
+            src="" 
+            name={isUser ? "You" : "AI"} 
+          />
+        )}
+        
+        <MessageContent>
+          {message.parts?.map((part, i) => {
+            if (part.type === "text") {
+              return (
+                <div key={i}>
+                  <Response>
+                    {part.text.replace(/^scheduled message: /, "")}
+                  </Response>
+                  
+                  {/* Render UI Component if present */}
+                  {!isUser && message.uiComponent && (
+                    <div className="mt-3">
+                      <SafeJSXRenderer 
+                        component={message.uiComponent}
+                        className="max-w-full"
+                      />
+                    </div>
+                  )}
+                  
+                  <div className={`text-xs text-muted-foreground mt-1 ${
+                    isUser ? "text-right" : "text-left"
+                  }`}>
+                    <div>{formatTime(new Date())}</div>
+                    {message.processingTimeMs && (
+                      <div className="text-blue-600 dark:text-blue-400">
+                        Generated in {message.processingTimeMs}ms
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Add Feedback Actions for AI responses */}
+                  {!isUser && (
+                    <Actions className="mt-2">
+                      <Action
+                        tooltip="This response was helpful"
+                        onClick={() => onFeedback({
+                          messageId: message.id,
+                          feedback: { thumbsUp: true, thumbsDown: false },
+                          context: {
+                            toolResults: [],
+                            processingTime: message.processingTimeMs || 0,
+                            model: 'gpt-4o',
+                          }
+                        })}
+                      >
+                        👍
+                      </Action>
+                      <Action
+                        tooltip="This response was not helpful"
+                        onClick={() => onFeedback({
+                          messageId: message.id,
+                          feedback: { thumbsUp: false, thumbsDown: true },
+                          context: {
+                            toolResults: [],
+                            processingTime: message.processingTimeMs || 0,
+                            model: 'gpt-4o',
+                          }
+                        })}
+                      >
+                        👎
+                      </Action>
+                    </Actions>
+                  )}
+                </div>
+              );
+            }
+
+            if (part.type.startsWith("tool-")) {
+              const toolName = part.type.replace("tool-", "");
+
+              if (
+                "toolCallId" in part &&
+                "state" in part &&
+                "input" in part &&
+                toolsRequiringConfirmation.includes(
+                  toolName as keyof typeof tools
+                ) &&
+                part.state === "input-available"
+              ) {
+                const toolCallId = part.toolCallId;
+                return (
+                  <Card
+                    key={i}
+                    className="p-4 my-3 rounded-md bg-neutral-100 dark:bg-neutral-900"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="bg-[#F48120]/10 p-1.5 rounded-full">
+                        <Robot
+                          size={16}
+                          className="text-[#F48120]"
+                        />
+                      </div>
+                      <h4 className="font-medium">{toolName}</h4>
+                    </div>
+
+                    <div className="mb-3">
+                      <h5 className="text-xs font-medium mb-1 text-muted-foreground">
+                        Arguments:
+                      </h5>
+                      <pre className="bg-background/80 p-2 rounded-md text-xs overflow-auto">
+                        {JSON.stringify(part.input, null, 2)}
+                      </pre>
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() =>
+                          onToolResult({
+                            toolCallId,
+                            output: APPROVAL.NO,
+                          })
+                        }
+                      >
+                        Reject
+                      </Button>
+                      <Tooltip content={"Accept action"}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() =>
+                            onToolResult({
+                              toolCallId,
+                              output: APPROVAL.YES,
+                            })
+                          }
+                        >
+                          Approve
+                        </Button>
+                      </Tooltip>
+                    </div>
+                  </Card>
+                );
+              }
+              return null;
+            }
+            return null;
+          })}
+        </MessageContent>
+      </Message>
+    </div>
+  );
+}
+
 export default function Chat() {
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     // Check localStorage first, default to dark if not found
@@ -65,11 +259,6 @@ export default function Chat() {
     return (savedTheme as "dark" | "light") || "dark";
   });
   const [showDebug, setShowDebug] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
 
   useEffect(() => {
     // Apply theme class on mount and when theme changes
@@ -84,11 +273,6 @@ export default function Chat() {
     // Save theme preference to localStorage
     localStorage.setItem("theme", theme);
   }, [theme]);
-
-  // Scroll to bottom on mount
-  useEffect(() => {
-    scrollToBottom();
-  }, [scrollToBottom]);
 
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
@@ -212,11 +396,6 @@ export default function Chat() {
   // Debug logging
   console.log("useAgentChat result:", { messages: agentMessages, setMessages, error, id });
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    agentMessages.length > 0 && scrollToBottom();
-  }, [agentMessages, scrollToBottom]);
-
   const pendingToolCallConfirmation = agentMessages.some((m: UIMessage) =>
     m.parts?.some(
       (part) =>
@@ -228,10 +407,6 @@ export default function Chat() {
         )
     )
   );
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
 
   return (
     <div className="h-[100vh] w-full p-4 flex justify-center items-center bg-fixed overflow-hidden">
@@ -290,21 +465,21 @@ export default function Chat() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24 max-h-[calc(100vh-10rem)]">
-          {agentMessages.length === 0 && (
-            <div className="h-full flex items-center justify-center">
-              <Card className="p-6 max-w-md mx-auto bg-neutral-100 dark:bg-neutral-900">
-                <div className="text-center space-y-4">
+        <Conversation className="flex-1">
+          <ConversationContent>
+            {agentMessages.length === 0 ? (
+              <ConversationEmptyState
+                title="Welcome to your AI Token Agent"
+                description="Ask me about any token, chain, wallet, or DeFi protocol"
+                icon={
                   <div className="bg-[#F48120]/10 text-[#F48120] rounded-full p-3 inline-flex">
                     <Robot size={24} />
                   </div>
-                  <h3 className="font-semibold text-lg">
-                    Welcome - talk with me about any token, chain, wallet, or
-                    DeFi protocol
-                  </h3>
+                }
+              >
+                <div className="space-y-4">
                   <p className="text-muted-foreground text-sm">
-                    Start a conversation with your AI assistant. Try asking
-                    about:
+                    Try asking about:
                   </p>
                   <ul className="text-sm text-left space-y-2">
                     <li className="flex items-center gap-2">
@@ -317,183 +492,24 @@ export default function Chat() {
                     </li>
                   </ul>
                 </div>
-              </Card>
-            </div>
-          )}
-
-          {agentMessages.map((m: ExtendedMessage, index: number) => {
-            const isUser = m.role === "user";
-            const showAvatar =
-              index === 0 || agentMessages[index - 1]?.role !== m.role;
-
-            return (
-              <div key={m.id}>
-                {showDebug && (
-                  <pre className="text-xs text-muted-foreground overflow-scroll">
-                    {JSON.stringify(m, null, 2)}
-                  </pre>
-                )}
-                
-                <Message from={m.role}>
-                  {showAvatar && (
-                    <MessageAvatar 
-                      src="" 
-                      name={isUser ? "You" : "AI"} 
-                    />
-                  )}
-                  
-                  <MessageContent>
-                    {m.parts?.map((part, i) => {
-                      if (part.type === "text") {
-                        return (
-                          // biome-ignore lint/suspicious/noArrayIndexKey: it's fine here
-                          <div key={i}>
-                            <Response>
-                              {!isUser ? (
-                                part.text.replace(/^scheduled message: /, "")
-                              ) : (
-                                part.text.replace(/^scheduled message: /, "")
-                              )}
-                            </Response>
-                            
-                            {/* Render UI Component if present */}
-                            {!isUser && m.uiComponent && (
-                              <div className="mt-3">
-                                <SafeJSXRenderer 
-                                  component={m.uiComponent}
-                                  className="max-w-full"
-                                />
-                              </div>
-                            )}
-                            
-                            <div className={`text-xs text-muted-foreground mt-1 ${
-                              isUser ? "text-right" : "text-left"
-                            }`}>
-                              <div>{formatTime(new Date())}</div>
-                              {(m as ExtendedMessage).processingTimeMs && (
-                                <div className="text-blue-600 dark:text-blue-400">
-                                  Generated in {(m as ExtendedMessage).processingTimeMs}ms
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Add Feedback Actions for AI responses */}
-                            {!isUser && (
-                              <Actions className="mt-2">
-                                <Action
-                                  tooltip="This response was helpful"
-                                  onClick={() => handleFeedback({
-                                    messageId: m.id,
-                                    feedback: { thumbsUp: true, thumbsDown: false },
-                                    context: {
-                                      toolResults: [],
-                                      processingTime: (m as ExtendedMessage).processingTimeMs || 0,
-                                      model: 'gpt-4o',
-                                    }
-                                  })}
-                                >
-                                  👍
-                                </Action>
-                                <Action
-                                  tooltip="This response was not helpful"
-                                  onClick={() => handleFeedback({
-                                    messageId: m.id,
-                                    feedback: { thumbsUp: false, thumbsDown: true },
-                                    context: {
-                                      toolResults: [],
-                                      processingTime: (m as ExtendedMessage).processingTimeMs || 0,
-                                      model: 'gpt-4o',
-                                    }
-                                  })}
-                                >
-                                  👎
-                                </Action>
-                              </Actions>
-                            )}
-                          </div>
-                        );
-                      }
-
-                          if (part.type.startsWith("tool-")) {
-                            const toolName = part.type.replace("tool-", "");
-
-                            if (
-                              "toolCallId" in part &&
-                              "state" in part &&
-                              "input" in part &&
-                              toolsRequiringConfirmation.includes(
-                                toolName as keyof typeof tools
-                              ) &&
-                              part.state === "input-available"
-                            ) {
-                              const toolCallId = part.toolCallId;
-                              return (
-                                <Card
-                                  // biome-ignore lint/suspicious/noArrayIndexKey: it's fine here
-                                  key={i}
-                                  className="p-4 my-3 rounded-md bg-neutral-100 dark:bg-neutral-900"
-                                >
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <div className="bg-[#F48120]/10 p-1.5 rounded-full">
-                                      <Robot
-                                        size={16}
-                                        className="text-[#F48120]"
-                                      />
-                                    </div>
-                                    <h4 className="font-medium">{toolName}</h4>
-                                  </div>
-
-                                  <div className="mb-3">
-                                    <h5 className="text-xs font-medium mb-1 text-muted-foreground">
-                                      Arguments:
-                                    </h5>
-                                    <pre className="bg-background/80 p-2 rounded-md text-xs overflow-auto">
-                                      {JSON.stringify(part.input, null, 2)}
-                                    </pre>
-                                  </div>
-
-                                  <div className="flex gap-2 justify-end">
-                                    <Button
-                                      variant="primary"
-                                      size="sm"
-                                      onClick={() =>
-                                        addToolResult({
-                                          toolCallId,
-                                          output: APPROVAL.NO,
-                                        })
-                                      }
-                                    >
-                                      Reject
-                                    </Button>
-                                    <Tooltip content={"Accept action"}>
-                                      <Button
-                                        variant="primary"
-                                        size="sm"
-                                        onClick={() =>
-                                          addToolResult({
-                                            toolCallId,
-                                            output: APPROVAL.YES,
-                                          })
-                                        }
-                                      >
-                                        Approve
-                                      </Button>
-                                    </Tooltip>
-                                  </div>
-                                </Card>
-                              );
-                            }
-                            return null;
-                          }
-                          return null;
-                        })}
-                  </MessageContent>
-                </Message>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
+              </ConversationEmptyState>
+            ) : (
+              agentMessages.map((m: ExtendedMessage, index: number) => (
+                <ChatMessage
+                  key={m.id}
+                  message={m}
+                  index={index}
+                  messages={agentMessages}
+                  showDebug={showDebug}
+                  onFeedback={handleFeedback}
+                  onToolResult={addToolResult}
+                  toolsRequiringConfirmation={toolsRequiringConfirmation}
+                />
+              ))
+            )}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
 
         {/* Input Area */}
         <form
