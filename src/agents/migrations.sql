@@ -81,4 +81,44 @@ CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_next_run ON scheduled_tasks(next_
 CREATE INDEX IF NOT EXISTS idx_error_logs_agent ON error_logs(agent_id);
 CREATE INDEX IF NOT EXISTS idx_task_logs_task ON task_logs(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_logs_agent ON task_logs(agent_id);
-CREATE INDEX IF NOT EXISTS idx_tool_usage_logs_agent ON tool_usage_logs(agent_id); 
+CREATE INDEX IF NOT EXISTS idx_tool_usage_logs_agent ON tool_usage_logs(agent_id);
+
+-- Feedback System Tables
+CREATE TABLE IF NOT EXISTS feedback_data (
+    id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    feedback_type TEXT NOT NULL, -- 'quick', 'detailed', 'contextual'
+    feedback_data TEXT NOT NULL, -- JSON
+    response_context TEXT NOT NULL, -- JSON
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS feedback_analytics (
+    id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL,
+    total_feedback INTEGER DEFAULT 0,
+    positive_feedback INTEGER DEFAULT 0,
+    negative_feedback INTEGER DEFAULT 0,
+    average_rating REAL DEFAULT 0,
+    category_scores TEXT, -- JSON
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS response_quality (
+    id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL,
+    quality_score REAL NOT NULL,
+    confidence_level REAL NOT NULL,
+    improvement_suggestions TEXT, -- JSON
+    evaluated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Feedback System Indexes
+CREATE INDEX IF NOT EXISTS idx_feedback_data_message_id ON feedback_data(message_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_data_user_id ON feedback_data(user_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_data_timestamp ON feedback_data(timestamp);
+CREATE INDEX IF NOT EXISTS idx_feedback_analytics_message_id ON feedback_analytics(message_id);
+CREATE INDEX IF NOT EXISTS idx_response_quality_message_id ON response_quality(message_id); 

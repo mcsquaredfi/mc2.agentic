@@ -4,6 +4,9 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { Env } from "../types";
 import { BASE_COMPONENT_LIBRARY, COMPONENT_USAGE_GUIDELINES } from "../../components/base-component-library";
 
+// AI Elements integration (now available!)
+const AI_ELEMENTS_AVAILABLE = true;
+
 const UIComponentSchema = z.object({
   componentCode: z.string().describe('The React JSX component code'),
   props: z.record(z.any()).describe('Props to pass to the component'),
@@ -76,6 +79,18 @@ You are generating a React component that will be displayed in a chat interface.
 - RiskBadge: <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">{level}</span>
 - TVLDisplay: <span className="text-blue-600 font-semibold">\${value.toLocaleString()}</span>
 - Card: <div className="rounded-lg p-4 bg-neutral-100 dark:bg-neutral-900">
+
+${AI_ELEMENTS_AVAILABLE ? `
+## AI ELEMENTS COMPONENTS (preferred - use these!):
+- Message: <Message from="assistant"><MessageContent><Response>Content</Response></MessageContent></Message>
+- Actions: <Actions><Action onClick={handler}>Label</Action></Actions>
+- Conversation: <Conversation><ConversationContent>...</ConversationContent></Conversation>
+- Response: <Response>Formatted AI response content</Response>
+
+## IMPORTANT: Always wrap AI responses in Message + MessageContent + Response components!
+` : `
+## NOTE: AI Elements not yet available - using base components
+`}
 
 ## DESIGN SYSTEM (simplified):
 - Colors: text-green-500 (positive), text-red-500 (negative), text-blue-600 (neutral)

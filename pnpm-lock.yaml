@@ -50,6 +50,9 @@ importers:
       ai:
         specifier: ^5.0.0
         version: 5.0.44(zod@3.25.76)
+      ai-elements:
+        specifier: ^1.1.2
+        version: 1.1.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1562,6 +1565,10 @@ packages:
     resolution: {integrity: sha512-n7H7GtdAvQ+VMtninCnS8uA3Uy7ypZcqf0ogKFFTSksivXVhUKfb5jg/auCfgr2wvJM6vZ8EUWX3j6aGVAbYJA==}
     peerDependencies:
       react: '*'
+
+  ai-elements@1.1.2:
+    resolution: {integrity: sha512-59+WD0EOOepfMeKispoa57ZTpgYdTN0tVmwRaGlWYyf9vnM497XoUAlYgzmvAiefp5znhnJ8kFUwR1oGSLnukA==}
+    hasBin: true
 
   ai@5.0.39:
     resolution: {integrity: sha512-1AOjTHY8MUY4T/X/I+otGTbvKmMQCCGWffuVDyQ21l/2Vv/QoLZcw+ZZHVvp+wvQcPOsfXjURGSFZtin7rnghA==}
@@ -4541,6 +4548,8 @@ snapshots:
     transitivePeerDependencies:
       - '@cloudflare/workers-types'
       - supports-color
+
+  ai-elements@1.1.2: {}
 
   ai@5.0.39(zod@3.25.76):
     dependencies:

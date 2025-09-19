@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "agents/ai-react";
-import type { UIMessage as Message } from "ai";
+import type { UIMessage } from "ai";
 import { APPROVAL } from "./shared";
 import type { tools } from "./tools";
 
@@ -14,6 +14,10 @@ import { Toggle } from "@/components/toggle/Toggle";
 import { Tooltip } from "@/components/tooltip/Tooltip";
 import { SafeJSXRenderer } from "@/components/dynamic-renderer";
 import { MarkdownRenderer } from "@/components/markdown";
+import { FeedbackCollector } from "@/components/feedback/FeedbackCollector";
+import { Message, MessageContent, MessageAvatar } from "@/components/ai-elements/message";
+import { Response } from "@/components/ai-elements/response";
+import { Actions, Action } from "@/components/ai-elements/actions";
 
 // Icon imports
 import {
@@ -41,7 +45,7 @@ function getOrCreateAgentSessionId(): string {
 }
 
 // Extended message type to include UI components
-interface ExtendedMessage extends Message {
+interface ExtendedMessage extends UIMessage {
   uiComponent?: {
     componentType: string;
     jsx?: string;
@@ -190,6 +194,21 @@ export default function Chat() {
     setMessages([]);
   };
 
+  // Handle feedback submission
+  const handleFeedback = async (feedback: any) => {
+    console.log('📝 Feedback received:', feedback);
+    
+    // Here you would typically send the feedback to your backend
+    // For now, we'll just log it and could send it to Amplitude
+    try {
+      // You can add API call to store feedback here
+      // await fetch('/api/feedback', { method: 'POST', body: JSON.stringify(feedback) });
+      console.log('✅ Feedback processed successfully');
+    } catch (error) {
+      console.error('❌ Error processing feedback:', error);
+    }
+  };
+
   // Debug logging
   console.log("useAgentChat result:", { messages: agentMessages, setMessages, error, id });
 
@@ -198,7 +217,7 @@ export default function Chat() {
     agentMessages.length > 0 && scrollToBottom();
   }, [agentMessages, scrollToBottom]);
 
-  const pendingToolCallConfirmation = agentMessages.some((m: Message) =>
+  const pendingToolCallConfirmation = agentMessages.some((m: UIMessage) =>
     m.parts?.some(
       (part) =>
         part.type.startsWith("tool-") &&
@@ -306,7 +325,6 @@ export default function Chat() {
             const isUser = m.role === "user";
             const showAvatar =
               index === 0 || agentMessages[index - 1]?.role !== m.role;
-            const showRole = showAvatar && !isUser;
 
             return (
               <div key={m.id}>
@@ -315,87 +333,86 @@ export default function Chat() {
                     {JSON.stringify(m, null, 2)}
                   </pre>
                 )}
-                <div
-                  className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`flex gap-2 ${isUser ? "max-w-[70%]" : "max-w-[90%]"} ${
-                      isUser ? "flex-row-reverse" : "flex-row"
-                    }`}
-                  >
-                    {showAvatar && !isUser ? (
-                      <Avatar username={"AI"} />
-                    ) : (
-                      !isUser && <div className="w-8" />
-                    )}
-
-                    <div>
-                      <div>
-                        {m.parts?.map((part, i) => {
-                          if (part.type === "text") {
-                            return (
-                              // biome-ignore lint/suspicious/noArrayIndexKey: it's fine here
-                              <div key={i}>
-                                <Card
-                                  className={`p-3 rounded-md ${
-                                    isUser
-                                      ? "bg-neutral-100 dark:bg-neutral-900 rounded-br-none"
-                                      : (m as ExtendedMessage).isQuickResponse
-                                      ? "bg-blue-50 dark:bg-blue-900/20 rounded-bl-none border-blue-200 dark:border-blue-800"
-                                      : "bg-neutral-100 dark:bg-neutral-900 rounded-bl-none border-assistant-border"
-                                  } ${
-                                    part.text.startsWith("scheduled message")
-                                      ? "border-accent/50"
-                                      : ""
-                                  } relative`}
-                                >
-                                  {part.text.startsWith(
-                                    "scheduled message"
-                                  ) && (
-                                    <span className="absolute -top-3 -left-2 text-base">
-                                      🕒
-                                    </span>
-                                  )}
-                                  {(m as ExtendedMessage).isQuickResponse && (
-                                    <span className="absolute -top-2 -right-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full">
-                                      ⚡ Quick
-                                    </span>
-                                  )}
-                                  {!isUser ? (
-                                    <MarkdownRenderer 
-                                      content={part.text.replace(/^scheduled message: /, "")}
-                                      className=""
-                                    />
-                                  ) : (
-                                    <p className="text-sm whitespace-pre-wrap">
-                                      {part.text.replace(/^scheduled message: /, "")}
-                                    </p>
-                                  )}
-                                </Card>
-                                
-                                {/* Render UI Component if present */}
-                                {!isUser && m.uiComponent && (
-                                  <div className="mt-3">
-                                    <SafeJSXRenderer 
-                                      component={m.uiComponent}
-                                      className="max-w-full"
-                                    />
-                                  </div>
-                                )}
-                                
-                                <div className={`text-xs text-muted-foreground mt-1 ${
-                                  isUser ? "text-right" : "text-left"
-                                }`}>
-                                  <div>{formatTime(new Date())}</div>
-                                  {(m as ExtendedMessage).processingTimeMs && (
-                                    <div className="text-blue-600 dark:text-blue-400">
-                                      Generated in {(m as ExtendedMessage).processingTimeMs}ms
-                                    </div>
-                                  )}
-                                </div>
+                
+                <Message from={m.role}>
+                  {showAvatar && (
+                    <MessageAvatar 
+                      src="" 
+                      name={isUser ? "You" : "AI"} 
+                    />
+                  )}
+                  
+                  <MessageContent>
+                    {m.parts?.map((part, i) => {
+                      if (part.type === "text") {
+                        return (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: it's fine here
+                          <div key={i}>
+                            <Response>
+                              {!isUser ? (
+                                part.text.replace(/^scheduled message: /, "")
+                              ) : (
+                                part.text.replace(/^scheduled message: /, "")
+                              )}
+                            </Response>
+                            
+                            {/* Render UI Component if present */}
+                            {!isUser && m.uiComponent && (
+                              <div className="mt-3">
+                                <SafeJSXRenderer 
+                                  component={m.uiComponent}
+                                  className="max-w-full"
+                                />
                               </div>
-                            );
-                          }
+                            )}
+                            
+                            <div className={`text-xs text-muted-foreground mt-1 ${
+                              isUser ? "text-right" : "text-left"
+                            }`}>
+                              <div>{formatTime(new Date())}</div>
+                              {(m as ExtendedMessage).processingTimeMs && (
+                                <div className="text-blue-600 dark:text-blue-400">
+                                  Generated in {(m as ExtendedMessage).processingTimeMs}ms
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Add Feedback Actions for AI responses */}
+                            {!isUser && (
+                              <Actions className="mt-2">
+                                <Action
+                                  tooltip="This response was helpful"
+                                  onClick={() => handleFeedback({
+                                    messageId: m.id,
+                                    feedback: { thumbsUp: true, thumbsDown: false },
+                                    context: {
+                                      toolResults: [],
+                                      processingTime: (m as ExtendedMessage).processingTimeMs || 0,
+                                      model: 'gpt-4o',
+                                    }
+                                  })}
+                                >
+                                  👍
+                                </Action>
+                                <Action
+                                  tooltip="This response was not helpful"
+                                  onClick={() => handleFeedback({
+                                    messageId: m.id,
+                                    feedback: { thumbsUp: false, thumbsDown: true },
+                                    context: {
+                                      toolResults: [],
+                                      processingTime: (m as ExtendedMessage).processingTimeMs || 0,
+                                      model: 'gpt-4o',
+                                    }
+                                  })}
+                                >
+                                  👎
+                                </Action>
+                              </Actions>
+                            )}
+                          </div>
+                        );
+                      }
 
                           if (part.type.startsWith("tool-")) {
                             const toolName = part.type.replace("tool-", "");
@@ -470,10 +487,8 @@ export default function Chat() {
                           }
                           return null;
                         })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  </MessageContent>
+                </Message>
               </div>
             );
           })}
