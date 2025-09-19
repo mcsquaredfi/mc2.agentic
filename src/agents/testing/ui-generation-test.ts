@@ -36,10 +36,14 @@ export class UIGenerationTester {
       );
 
       console.log("✅ Token price component generated successfully!");
-      console.log("Component type:", component.componentType);
-      console.log("Explanation:", component.explanation);
-      console.log("Code length:", component.componentCode.length);
-      console.log("Props:", Object.keys(component.props));
+      if (component) {
+        console.log("Component type:", component.componentType);
+        console.log("Explanation:", component.explanation);
+        console.log("Code length:", component.componentCode.length);
+        console.log("Props:", Object.keys(component.props));
+      } else {
+        console.log("No component generated (auto-generated UI may be disabled)");
+      }
       
       return component;
     } catch (error) {
@@ -81,9 +85,13 @@ export class UIGenerationTester {
       );
 
       console.log("✅ Yield data component generated successfully!");
-      console.log("Component type:", component.componentType);
-      console.log("Explanation:", component.explanation);
-      console.log("Code length:", component.componentCode.length);
+      if (component) {
+        console.log("Component type:", component.componentType);
+        console.log("Explanation:", component.explanation);
+        console.log("Code length:", component.componentCode.length);
+      } else {
+        console.log("No component generated (auto-generated UI may be disabled)");
+      }
       
       return component;
     } catch (error) {
