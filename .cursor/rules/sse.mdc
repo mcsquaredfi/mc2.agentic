@@ -1,0 +1,338 @@
+---
+alwaysApply: false
+---
+# MC2 MCP Server SSE (Server-Sent Events) Integration Guide
+
+## Overview
+
+The MC2 MCP server supports **Server-Sent Events (SSE)** for real-time communication with MCP clients. This allows for streaming responses and real-time updates from the server.
+
+## SSE Endpoints
+
+### Available SSE Endpoints
+- **`/sse`** - Main SSE endpoint for MCP communication
+- **`/sse/message`** - Alternative SSE endpoint for message handling
+
+### Configuration in Server
+```typescript
+// From src/index.ts
+if (url.pathname === '/sse' || url.pathname === '/sse/message') {
+    // Add CORS headers for SSE
+    const response = await MC2MCP.serveSSE('/sse').fetch(request, env, ctx);
+
+    // Add keep-alive headers
+    const headers = new Headers(response.headers);
+    headers.set('Cache-Control', 'no-cache');
+    headers.set('Connection', 'keep-alive');
+    headers.set('Keep-Alive', 'timeout=120');
+
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+    });
+}
+```
+
+## SSE Implementation Details
+
+### Server-Side Implementation
+The server uses the **Cloudflare Agents** library which provides:
+- **`McpAgent.serveSSE()`** - Static method to create SSE endpoint
+- **`SSEEdgeClientTransport`** - Client transport for Cloudflare Workers environment
+- **Durable Objects** - For persistent connections and state management
+
+### Key Features
+1. **Keep-Alive Connection** - 120-second timeout with persistent connection
+2. **CORS Support** - Configured for cross-origin requests
+3. **Durable Object Integration** - Persistent state across requests
+4. **Edge-Compatible** - Optimized for Cloudflare Workers environment
+
+## Client Integration
+
+### Using SSE Client Transport
+
+```typescript
+import { SSEEdgeClientTransport } from 'agents/mcp';
+
+// Create SSE client transport
+const transport = new SSEEdgeClientTransport(
+    new URL('https://your-domain.com/sse'),
+    {
+        // SSE-specific options
+        headers: {
+            'Accept': 'text/event-stream',
+            'Cache-Control': 'no-cache'
+        }
+    }
+);
+
+// Connect to MCP server via SSE
+const client = new Client({
+    name: 'my-client',
+    version: '1.0.0'
+}, {
+    capabilities: {
+        tools: {},
+        resources: {},
+        prompts: {}
+    }
+});
+
+await client.connect(transport);
+```
+
+### Alternative: Using MCP Client Manager
+
+```typescript
+import { MCPClientManager } from 'agents/mcp/client';
+
+const manager = new MCPClientManager('my-client', '1.0.0');
+
+// Connect via SSE
+const connection = await manager.connect('https://your-domain.com/sse', {
+    transport: {
+        type: 'sse',
+        headers: {
+            'Accept': 'text/event-stream',
+            'Cache-Control': 'no-cache'
+        }
+    }
+});
+```
+
+## SSE vs Standard HTTP
+
+### When to Use SSE
+- **Real-time updates** - For live data streaming
+- **Long-running operations** - For operations that take time to complete
+- **Progressive responses** - For streaming large datasets
+- **Event-driven communication** - For server-initiated messages
+
+### When to Use Standard HTTP
+- **Simple requests** - For one-time data retrieval
+- **Stateless operations** - For operations without persistent state
+- **Quick responses** - For operations that complete quickly
+
+## Special Implementation Considerations
+
+### 1. Connection Persistence
+```typescript
+// SSE maintains persistent connection
+const sseConnection = await client.connect(transport);
+
+// Standard HTTP is stateless
+const httpResponse = await fetch('/mcp', {
+    method: 'POST',
+    body: JSON.stringify(request)
+});
+```
+
+### 2. Error Handling
+```typescript
+// SSE - Handle connection drops and reconnection
+transport.addEventListener('error', (event) => {
+    console.error('SSE connection error:', event);
+    // Implement reconnection logic
+});
+
+transport.addEventListener('close', () => {
+    console.log('SSE connection closed');
+    // Reconnect if needed
+});
+```
+
+### 3. Message Format
+SSE messages follow the standard MCP protocol format:
+```
+data: {"jsonrpc": "2.0", "method": "tools/call", "params": {...}}
+
+data: {"jsonrpc": "2.0", "id": 1, "result": {...}}
+```
+
+## Advanced Usage Patterns
+
+### 1. Bidirectional Communication
+```typescript
+// Send requests via SSE
+const response = await client.callTool({
+    name: 'searchVaults',
+    arguments: { query: 'stablecoin yield' }
+});
+
+// Receive real-time updates
+client.onNotification('vaults/updated', (data) => {
+    console.log('Vault data updated:', data);
+});
+```
+
+### 2. Streaming Large Responses
+```typescript
+// For large datasets, SSE can stream results progressively
+const streamResponse = await client.callTool({
+    name: 'getAllVaults',
+    arguments: { stream: true }
+});
+
+// Handle streaming chunks
+streamResponse.on('data', (chunk) => {
+    processChunk(chunk);
+});
+```
+
+### 3. Real-time Monitoring
+```typescript
+// Subscribe to real-time vault metrics
+await client.callTool({
+    name: 'subscribeToMetrics',
+    arguments: { vaultIds: ['vault1', 'vault2'] }
+});
+
+// Receive real-time metric updates
+client.onNotification('metrics/update', (metrics) => {
+    updateDashboard(metrics);
+});
+```
+
+## Configuration Options
+
+### SSE Transport Options
+```typescript
+interface SSEClientTransportOptions {
+    headers?: Record<string, string>;
+    timeout?: number;
+    retryInterval?: number;
+    maxRetries?: number;
+}
+```
+
+### Server Configuration
+```typescript
+// CORS options for SSE
+interface CORSOptions {
+    origin?: string;
+    methods?: string;
+    headers?: string;
+    maxAge?: number;
+    exposeHeaders?: string;
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Connection Drops**
+   - Implement reconnection logic
+   - Check network stability
+   - Verify server timeout settings
+
+2. **CORS Errors**
+   - Ensure proper CORS headers are set
+   - Check origin configuration
+   - Verify preflight request handling
+
+3. **Message Parsing Errors**
+   - Validate JSON format
+   - Check MCP protocol compliance
+   - Handle malformed messages gracefully
+
+### Debugging Tips
+```typescript
+// Enable debug logging
+const transport = new SSEEdgeClientTransport(url, {
+    debug: true,
+    onMessage: (message) => console.log('SSE Message:', message),
+    onError: (error) => console.error('SSE Error:', error)
+});
+```
+
+## Performance Considerations
+
+### 1. Connection Limits
+- Each SSE connection consumes server resources
+- Implement connection pooling for multiple clients
+- Use connection limits to prevent resource exhaustion
+
+### 2. Message Frequency
+- Avoid sending too many messages per second
+- Implement message batching for high-frequency updates
+- Use appropriate message priorities
+
+### 3. Memory Management
+- Clean up event listeners on disconnect
+- Implement message queue limits
+- Monitor memory usage for long-running connections
+
+## Example: Complete SSE Integration
+
+```typescript
+import { SSEEdgeClientTransport, Client } from 'agents/mcp';
+
+class MC2SSEClient {
+    private client: Client;
+    private transport: SSEEdgeClientTransport;
+
+    constructor(serverUrl: string) {
+        this.transport = new SSEEdgeClientTransport(new URL(`${serverUrl}/sse`), {
+            headers: {
+                'Accept': 'text/event-stream',
+                'Cache-Control': 'no-cache'
+            }
+        });
+
+        this.client = new Client({
+            name: 'mc2-client',
+            version: '1.0.0'
+        }, {
+            capabilities: {
+                tools: {},
+                resources: {},
+                prompts: {}
+            }
+        });
+    }
+
+    async connect() {
+        await this.client.connect(this.transport);
+        
+        // Set up event handlers
+        this.setupEventHandlers();
+        
+        // Register tools and resources
+        await this.client.registerTools();
+        await this.client.registerResources();
+    }
+
+    private setupEventHandlers() {
+        this.transport.addEventListener('error', this.handleError.bind(this));
+        this.transport.addEventListener('close', this.handleClose.bind(this));
+    }
+
+    async searchVaults(query: string) {
+        return await this.client.callTool({
+            name: 'searchVaults',
+            arguments: { searchQuery: { searchTerm: query } }
+        });
+    }
+
+    private handleError(event: Event) {
+        console.error('SSE connection error:', event);
+        // Implement reconnection logic
+    }
+
+    private handleClose() {
+        console.log('SSE connection closed');
+        // Handle reconnection if needed
+    }
+}
+
+// Usage
+const client = new MC2SSEClient('https://your-mc2-server.com');
+await client.connect();
+
+const results = await client.searchVaults('stablecoin yield');
+console.log('Search results:', results);
+```
+
+This SSE implementation provides real-time, persistent communication with the MC2 MCP server, enabling advanced use cases like live monitoring, streaming responses, and event-driven updates.
