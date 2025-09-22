@@ -4,6 +4,7 @@ import type { Env } from "../types";
 export class MCPManager {
   private mcp = new MCPClientManager("MC2FI-MCP", "1.0.0");
   private mcpConnected = false;
+  private connectionType: 'sse' | 'http' | null = null;
 
   constructor(private env: Env) {}
 
@@ -15,38 +16,51 @@ export class MCPManager {
 
     try {
       console.info("Connecting to MCP server:", this.env.MCP_HOST);
-      const possibleEndpoints = [
-        `${this.env.MCP_HOST}/sse`,
-        `${this.env.MCP_HOST}/mcp`,
-        `${this.env.MCP_HOST}/`,
-        this.env.MCP_HOST
-      ];
       
-      let connected = false;
-      for (const endpoint of possibleEndpoints) {
-        try {
-          console.info("Trying MCP endpoint:", endpoint);
-          await this.mcp.connect(endpoint);
-          this.mcpConnected = true;
-          console.info("MC2FI-MCP@1.0.0 server connected at:", endpoint);
-          connected = true;
-          break;
-        } catch (endpointError) {
-          console.warn(`Failed to connect to ${endpoint}:`, endpointError);
-        }
-      }
+      // Try SSE connection first for real-time streaming
+      const sseEndpoint = `${this.env.MCP_HOST}/sse`;
+      console.info("Trying SSE connection to:", sseEndpoint);
       
-      if (!connected) {
-        throw new Error("Failed to connect to any MCP endpoint");
-      }
+      // For SSE, we need to use a different approach since MCPClientManager
+      // seems to be POSTing instead of GETting for SSE endpoints
+      // Let's try the /sse/message endpoint which might be more compatible
+      const sseMessageEndpoint = `${this.env.MCP_HOST}/sse/message`;
+      console.info("Trying SSE message endpoint:", sseMessageEndpoint);
+      
+      await this.mcp.connect(sseMessageEndpoint);
+      
+      this.mcpConnected = true;
+      this.connectionType = 'sse';
+      console.info("MC2FI-MCP@1.0.0 server connected via SSE");
+      
     } catch (error) {
-      console.warn("MCP connection failed:", error);
-      this.mcpConnected = false;
+      console.warn("SSE connection failed, trying Streamable HTTP:", error);
+      
+      // Fallback to Streamable HTTP if SSE fails
+      try {
+        const streamableEndpoint = `${this.env.MCP_HOST}/mcp`;
+        console.info("Trying Streamable HTTP endpoint:", streamableEndpoint);
+        
+        await this.mcp.connect(streamableEndpoint);
+        
+        this.mcpConnected = true;
+        this.connectionType = 'http';
+        console.info("MC2FI-MCP@1.0.0 server connected via Streamable HTTP");
+        
+      } catch (fallbackError) {
+        console.error("All connection attempts failed:", fallbackError);
+        this.mcpConnected = false;
+        this.connectionType = null;
+      }
     }
   }
 
   isConnected(): boolean {
     return this.mcpConnected;
+  }
+
+  getConnectionType(): 'sse' | 'http' | null {
+    return this.connectionType;
   }
 
   getTools(): Record<string, any> {
