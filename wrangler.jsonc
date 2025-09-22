@@ -10,6 +10,12 @@
   "assets": {
     "directory": "public",
   },
+  "vars": {
+    "ENABLE_AUTO_GENERATED_UI": "false",
+    "ENABLE_DEBUG_MODE": "false",
+    "ENABLE_FEEDBACK_SYSTEM": "true",
+    "ENABLE_AI_ELEMENTS": "true"
+  },
   "durable_objects": {
     "bindings": [
       {
@@ -27,4 +33,11 @@
   "observability": {
     "enabled": true,
   },
+  "kv_namespaces": [
+    {
+      "binding": "MCP_CACHE_KV",
+      "id": "a142ddf58a9e421488977d88270894bb",
+      "preview_id": "a7163488bb824a0daa9a6409b585d1f5"
+    }
+  ],
 }

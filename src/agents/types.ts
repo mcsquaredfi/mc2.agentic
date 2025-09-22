@@ -187,4 +187,7 @@ export interface Env {
 
   // MCP Client
   MCP_HOST: string;
+  
+  // KV bindings
+  MCP_CACHE_KV?: KVNamespace;
 }
