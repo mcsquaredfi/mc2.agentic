@@ -1,10 +1,10 @@
 // CRITICAL: NEVER generate fake, example, or demo data. Only show real information from tool calls.
 import { routeAgentRequest } from "agents";
 import type { Env } from "./agents/types";
-import { SimpleUnifiedChatAgent } from "./agents/core/simple-unified-chat-agent";
+import { SimpleMCPAgent } from "./agents/core/simple-mcp-agent";
 
-// Re-export the simplified agent as the Chat class for Durable Objects
-export { SimpleUnifiedChatAgent as Chat } from "./agents/core/simple-unified-chat-agent";
+// Re-export the simple MCP agent as the Chat class for Durable Objects
+export { SimpleMCPAgent as Chat } from "./agents/core/simple-mcp-agent";
 
 /**
  * Worker entry point that routes incoming requests to the appropriate handler
